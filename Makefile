@@ -10,6 +10,10 @@ VOLUME_DIR ?= $(PWD)/gt
 CLAUDE_CODE_OAUTH_TOKEN := $(shell security find-generic-password -s "claude-code-oauth-token" -w 2>/dev/null)
 GITHUB_TOKEN := $(shell security find-generic-password -s "gastown-github-token" -w 2>/dev/null)
 
+# Git identity from local git config (baked into image at build time)
+GIT_USERNAME := $(shell git config --get user.name 2>/dev/null)
+GIT_EMAIL := $(shell git config --get user.email 2>/dev/null)
+
 .PHONY: build start stop restart attach bash gt mayor clean logs status claude install rig crew dashboard dashboard-attach dashboard-stop
 
 # Argument capture for passthrough commands (allows: make gt status, make rig add foo, etc.)
@@ -21,7 +25,16 @@ endif
 
 # Build the Docker image
 build:
-	docker build -t $(IMAGE_NAME) .
+	@if [ -z "$(GIT_USERNAME)" ]; then \
+		echo "WARNING: git user.name not configured locally. Image will be built without git identity."; \
+	fi
+	@if [ -z "$(GIT_EMAIL)" ]; then \
+		echo "WARNING: git user.email not configured locally. Image will be built without git identity."; \
+	fi
+	docker build \
+		--build-arg GIT_USERNAME="$(GIT_USERNAME)" \
+		--build-arg GIT_EMAIL="$(GIT_EMAIL)" \
+		-t $(IMAGE_NAME) .
 
 # Start the container (detached, with volume mount and port forward)
 start: build

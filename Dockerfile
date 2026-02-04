@@ -109,10 +109,9 @@ RUN mkdir -p /home/node/go /home/node/.claude && chown -R node:node /home/node/g
 COPY .claude.json /home/node/.claude.json
 RUN chown node:node /home/node/.claude.json
 
-# Copy entrypoint and git credential helper
-COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
+# Copy git credential helper
 COPY scripts/git-credential-github-token /usr/local/bin/git-credential-github-token
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/git-credential-github-token
+RUN chmod +x /usr/local/bin/git-credential-github-token
 
 # Setup git config
 RUN git config --global credential.helper /usr/local/bin/git-credential-github-token
