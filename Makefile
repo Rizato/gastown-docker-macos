@@ -17,7 +17,7 @@ ALLOW_DNS ?= true
 # ALLOW_LOCALHOST: true/false - allow localhost traffic
 ALLOW_LOCALHOST ?= true
 
-.PHONY: build start stop restart attach bash gt mayor clean logs status claude install rig crew
+.PHONY: build start stop restart attach bash gt mayor clean logs status claude install rig crew dashboard dashboard-attach dashboard-stop
 
 # Argument capture for passthrough commands (allows: make gt status, make rig add foo, etc.)
 PASSTHROUGH_TARGETS := gt mayor rig crew
@@ -96,6 +96,22 @@ status:
 # Run claude-code in the container
 claude:
 	docker exec -it $(CONTAINER_NAME) claude
+
+# Start the dashboard in a detached tmux session
+dashboard:
+	@docker exec $(CONTAINER_NAME) tmux has-session -t dashboard 2>/dev/null && \
+		echo "Dashboard session already running. Use 'make dashboard-attach' to view." || \
+		(docker exec -d $(CONTAINER_NAME) tmux new-session -d -s dashboard 'gt dashboard' && \
+		echo "Dashboard started in tmux session. Available at http://localhost:$(DASHBOARD_PORT)")
+
+# Attach to the dashboard tmux session
+dashboard-attach:
+	docker exec -it $(CONTAINER_NAME) tmux attach-session -t dashboard
+
+# Stop the dashboard tmux session
+dashboard-stop:
+	@docker exec $(CONTAINER_NAME) tmux kill-session -t dashboard 2>/dev/null && \
+		echo "Dashboard session stopped" || echo "No dashboard session running"
 
 # Initialize gastown with git integration
 install:

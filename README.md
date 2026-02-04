@@ -77,6 +77,11 @@ make gt convoy create "<name>"      # Create work bundle
 make gt sling <bead-id> <rig>       # Assign work to an agent
 make mayor attach                   # Start Mayor coordinator session
 
+# Dashboard
+make dashboard          # Start gt dashboard in background tmux session
+make dashboard-attach   # Attach to dashboard tmux session
+make dashboard-stop     # Stop the dashboard session
+
 # Run Claude Code directly
 make claude
 ```
