@@ -2,10 +2,8 @@
 # Simple entrypoint: configure git credentials, then run the command
 set -e
 
-# Configure Claude Code to skip onboarding when using CLAUDE_CODE_OAUTH_TOKEN
+# Log Claude Code configuration status
 if [[ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]]; then
-    mkdir -p ~/.claude
-    echo '{"hasCompletedOnboarding":true}' > ~/.claude.json
     echo "[entrypoint] Claude Code onboarding bypassed (using CLAUDE_CODE_OAUTH_TOKEN)"
 fi
 

@@ -101,6 +101,10 @@ COPY --from=builder /root/go/bin/gt /usr/local/bin/gt
 # Create workspace, go, and claude config directories
 RUN mkdir -p /home/node/go /home/node/.claude && chown -R node:node /home/node/go /home/node/.claude
 
+# Copy claude config
+COPY .claude.json /home/node/.claude.json
+RUN chown node:node /home/node/.claude.json
+
 # Copy entrypoint and git credential helper
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY scripts/git-credential-github-token /usr/local/bin/git-credential-github-token
