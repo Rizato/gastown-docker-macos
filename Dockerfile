@@ -143,6 +143,10 @@ RUN echo "node ALL=(ALL) NOPASSWD: /usr/local/bin/network-sandbox.sh" > /etc/sud
 COPY scripts/network-sandbox.sh /usr/local/bin/network-sandbox.sh
 RUN chmod +x /usr/local/bin/network-sandbox.sh
 
+# Copy git credential helper
+COPY scripts/git-credential-github-token /usr/local/bin/git-credential-github-token
+RUN chmod +x /usr/local/bin/git-credential-github-token
+
 WORKDIR /workspace
 
 # Expose gastown dashboard port

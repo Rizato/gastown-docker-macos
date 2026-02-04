@@ -230,5 +230,13 @@ case "$SANDBOX_MODE" in
         ;;
 esac
 
+# Configure git credentials for node user if GITHUB_TOKEN is present
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    sudo -u node git config --global credential.helper /usr/local/bin/git-credential-github-token
+    log "Git credential helper configured for GitHub"
+else
+    log "Warning: GITHUB_TOKEN not set, git push/pull to GitHub will not work"
+fi
+
 # Drop privileges and execute the original command as node user
 exec sudo -u node "$@"
