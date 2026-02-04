@@ -45,20 +45,13 @@ RUN /usr/local/bin/uv python install
 FROM node:22-trixie-slim
 
 
-# Install only runtime dependencies (no build tools, no wget/vim/nano/gh)
+# Install only runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  less \
   git \
-  curl \
   procps \
-  fzf \
-  zsh \
-  man-db \
-  unzip \
   gnupg2 \
   jq \
   ca-certificates \
-  sudo \
   tmux \
   sqlite3 \
   libssl3 \

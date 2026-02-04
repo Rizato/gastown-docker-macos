@@ -1,54 +1,25 @@
-# Gastown Docker Sandbox
+# Gastown Docker Environment
 
-A Docker-based sandbox environment for running [Gastown](https://github.com/steveyegge/gastown) with network isolation. Provides a secure, reproducible environment with pre-installed development tools.
+A Docker-based environment for running [Gastown](https://github.com/steveyegge/gastown) isolated from your Mac. Provides a reproducible containerized workspace where Gastown runs Claude Code in bypass permission mode.
 
 ## Usage Model
 
-**Clone this repository fresh for each Gastown project.** This repo contains the Gastown installation baked into the Docker image, providing complete isolation between projects. The `gt/` directory serves as the workspace volume and is gitignored.
+**Clone this repository fresh for each Gastown project.** This repo contains the Gastown installation baked into the Docker image, providing isolation between projects. The `gt/` directory serves as the workspace volume and is gitignored.
 
 ```bash
-git clone <this-repo> my-project-sandbox
-cd my-project-sandbox
+git clone <this-repo> my-project-workspace
+cd my-project-workspace
 make start
 make attach
 ```
 
-## Security Posture
+## Why Docker?
 
-### Network Isolation
-
-The sandbox implements network isolation using iptables with three modes:
-
-| Mode | Description |
-|------|-------------|
-| `strict` (default) | Whitelist-only. All outbound traffic blocked except explicitly allowed hosts. |
-| `permissive` | Blocks dangerous ports (SMTP, SSH, databases) but allows most traffic. |
-| `disabled` | No network restrictions. |
-
-**Strict mode allowed hosts include:**
-- Package registries: npm, PyPI, crates.io, Go proxy
-- Code hosting: GitHub, GitLab, Bitbucket
-- Anthropic APIs: api.anthropic.com, claude.ai
-- Language tooling: rustup, uv/astral
-
-### Container Security
-
-- **Non-root execution**: Runs as the `node` user, not root
-- **Minimal sudo**: Passwordless sudo granted only for `/usr/local/bin/network-sandbox.sh`
-- **Capability-limited**: Requires only `NET_ADMIN` capability (for iptables)
-
-### What's Blocked (Strict Mode)
-
-All outbound traffic except:
-- DNS (port 53) when `ALLOW_DNS=true`
-- Localhost when `ALLOW_LOCALHOST=true`
-- Explicitly whitelisted hosts
-
-### What's Blocked (Permissive Mode)
-
-- SMTP (ports 25, 465, 587) - prevents spam
-- SSH outbound (port 22) - prevents lateral movement
-- Database ports (MySQL, PostgreSQL, MongoDB, Redis)
+Gastown runs Claude Code in bypass permission mode, allowing it to execute commands freely. Running this in a Docker container:
+- **Isolates from your Mac**: Actions taken by Claude stay within the container
+- **Reproducible environment**: Consistent tooling across machines
+- **Project isolation**: Each project gets its own container with baked-in Gastown installation
+- **Easy cleanup**: Remove the container when done
 
 ## Quick Reference
 
@@ -90,17 +61,11 @@ make claude
 Override at runtime via environment variables or make arguments:
 
 ```bash
-# Use permissive mode
-make start SANDBOX_MODE=permissive
-
-# Add custom allowed hosts
-make start ALLOWED_HOSTS="api.example.com,cdn.example.com"
-
-# Disable DNS
-make start ALLOW_DNS=false
-
 # Custom volume directory
 make start VOLUME_DIR=/path/to/workspace
+
+# Custom dashboard port
+make start DASHBOARD_PORT=9090
 ```
 
 ## Included Tools
@@ -177,5 +142,7 @@ If git identity is not configured locally, you'll see a warning during build, bu
 
 ## Requirements
 
-- Docker with `--cap-add=NET_ADMIN` support
-- `CLAUDE_CODE_OAUTH_TOKEN` environment variable (for Claude Code / Gastown)
+- Docker
+- macOS
+- Claude Code OAUTH token
+- Github personal access token
