@@ -1,7 +1,7 @@
 # =============================================================================
 # Stage 1: Builder - Install all build tools and compile dependencies
 # =============================================================================
-FROM node:22-trixie-slim@sha256:2e6ac793e95954b95c344f60ba9b57606ac5465297ed521f6b31e763b2fdffed AS builder
+FROM node:22-trixie-slim AS builder
 
 # Build arguments
 ARG TARGETARCH
@@ -78,7 +78,7 @@ RUN go install github.com/steveyegge/gastown/cmd/gt@${GASTOWN_VERSION}
 # =============================================================================
 # Stage 2: Runtime - Minimal image with only necessary tools
 # =============================================================================
-FROM node:22-trixie-slim@sha256:2e6ac793e95954b95c344f60ba9b57606ac5465297ed521f6b31e763b2fdffed
+FROM node:22-trixie-slim
 
 # Install only runtime dependencies (no build tools, no curl/wget/vim/nano/gh)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -91,7 +91,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   unzip \
   gnupg2 \
   iptables \
-  ip6tables \
   ipset \
   iproute2 \
   dnsutils \
