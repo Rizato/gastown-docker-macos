@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Go
 ARG TARGETARCH
-ARG GO_VERSION=1.24.12
+ARG GO_VERSION=1.25.6
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" | tar -C /usr/local -xzf -
 
 ENV PATH="/usr/local/go/bin:${PATH}"
