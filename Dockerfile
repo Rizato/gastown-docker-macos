@@ -3,11 +3,6 @@
 # =============================================================================
 FROM node:22-trixie-slim AS builder
 
-# Build arguments
-ARG TARGETARCH
-ARG GO_VERSION=1.24.12
-ARG UV_VERSION=0.5.20
-
 # Install build dependencies (these won't be in final image)
 RUN apt-get update && apt-get install -y --no-install-recommends \
   build-essential \
@@ -19,6 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Go
+ARG TARGETARCH
+ARG GO_VERSION=1.24.12
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" | tar -C /usr/local -xzf -
 
 ENV PATH="/usr/local/go/bin:${PATH}"
@@ -33,6 +30,7 @@ ENV PATH="/usr/local/cargo/bin:${PATH}"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 
 # Install uv (installer puts binaries in ~/.local/bin, move to /usr/local/bin)
+ARG UV_VERSION=0.5.20
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
   && mv /root/.local/bin/uv /usr/local/bin/uv \
   && mv /root/.local/bin/uvx /usr/local/bin/uvx
@@ -46,9 +44,6 @@ RUN /usr/local/bin/uv python install
 # =============================================================================
 FROM node:22-trixie-slim
 
-ARG GASTOWN_VERSION=v0.5.0
-ARG GIT_USERNAME
-ARG GIT_EMAIL
 
 # Install only runtime dependencies (no build tools, no wget/vim/nano/gh)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -88,18 +83,11 @@ COPY --from=builder /usr/local/bin/uvx /usr/local/bin/uvx
 COPY --from=builder /root/.local/share/uv /usr/local/share/uv
 ENV UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python
 
-# Copy Node.js global packages from builder
-#COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
-#COPY --from=builder /usr/local/bin/claude /usr/local/bin/claude
-#COPY --from=builder /usr/local/bin/bd /usr/local/bin/bd
-#
-## Copy gastown (gt) from builder
-#COPY --from=builder /root/go/bin/gt /usr/local/bin/gt
-
 # Install Node.js global packages
 RUN npm install -g @anthropic-ai/claude-code @beads/bd
 
 # Install gastown (gt)
+ARG GASTOWN_VERSION=v0.5.0
 RUN go install github.com/steveyegge/gastown/cmd/gt@${GASTOWN_VERSION}
 
 # Create workspace, go, and claude config directories
@@ -114,6 +102,8 @@ COPY scripts/git-credential-github-token /usr/local/bin/git-credential-github-to
 RUN chmod +x /usr/local/bin/git-credential-github-token
 
 # Setup git config
+ARG GIT_USERNAME
+ARG GIT_EMAIL
 RUN git config --global credential.helper /usr/local/bin/git-credential-github-token
 RUN git config --global user.name "${GIT_USERNAME}"
 RUN git config --global user.email "${GIT_EMAIL}"
