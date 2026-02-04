@@ -1,69 +1,141 @@
-FROM node:trixie-slim
+# =============================================================================
+# Stage 1: Builder - Install all build tools and compile dependencies
+# =============================================================================
+FROM node:22-trixie-slim@sha256:2e6ac793e95954b95c344f60ba9b57606ac5465297ed521f6b31e763b2fdffed AS builder
 
-# Install basic development tools, build essentials, and utilities
+# Build arguments
+ARG TARGETARCH
+ARG GO_VERSION=1.25.6
+ARG GASTOWN_VERSION=v0.5.0
+ARG UV_VERSION=0.5.20
+
+# Install build dependencies (these won't be in final image)
 RUN apt-get update && apt-get install -y --no-install-recommends \
   build-essential \
   cmake \
   pkg-config \
   libssl-dev \
+  curl \
+  ca-certificates \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Go with checksum verification
+RUN set -eux; \
+  curl -fsSL -o go.tar.gz "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz"; \
+  curl -fsSL -o go.tar.gz.sha256 "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz.sha256"; \
+  echo "$(cat go.tar.gz.sha256) go.tar.gz" | sha256sum -c -; \
+  tar -C /usr/local -xzf go.tar.gz; \
+  rm go.tar.gz go.tar.gz.sha256
+
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPATH="/root/go"
+ENV PATH="${GOPATH}/bin:${PATH}"
+
+# Install Rust with checksum verification
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH="/usr/local/cargo/bin:${PATH}"
+
+RUN set -eux; \
+  curl -fsSL -o rustup-init "https://static.rust-lang.org/rustup/dist/${TARGETARCH}-unknown-linux-gnu/rustup-init"; \
+  curl -fsSL -o rustup-init.sha256 "https://static.rust-lang.org/rustup/dist/${TARGETARCH}-unknown-linux-gnu/rustup-init.sha256"; \
+  # The sha256 file has a path prefix, extract just the hash
+  expected_hash=$(awk '{print $1}' rustup-init.sha256); \
+  echo "${expected_hash}  rustup-init" | sha256sum -c -; \
+  chmod +x rustup-init; \
+  ./rustup-init -y --no-modify-path; \
+  rm rustup-init rustup-init.sha256; \
+  # Secure permissions (not world-writable)
+  chmod -R 755 ${RUSTUP_HOME} ${CARGO_HOME}; \
+  find ${RUSTUP_HOME} ${CARGO_HOME} -type f -exec chmod 644 {} \;; \
+  chmod 755 ${CARGO_HOME}/bin/*
+
+# Install uv with checksum verification from GitHub releases
+RUN set -eux; \
+  case "${TARGETARCH}" in \
+    amd64) UV_ARCH="x86_64-unknown-linux-gnu" ;; \
+    arm64) UV_ARCH="aarch64-unknown-linux-gnu" ;; \
+    *) echo "Unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
+  esac; \
+  curl -fsSL -o uv.tar.gz "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${UV_ARCH}.tar.gz"; \
+  curl -fsSL -o checksums.txt "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${UV_ARCH}.tar.gz.sha256"; \
+  echo "$(cat checksums.txt)  uv.tar.gz" | sha256sum -c -; \
+  tar -xzf uv.tar.gz; \
+  mv uv-${UV_ARCH}/uv /usr/local/bin/uv; \
+  mv uv-${UV_ARCH}/uvx /usr/local/bin/uvx 2>/dev/null || true; \
+  chmod 755 /usr/local/bin/uv /usr/local/bin/uvx 2>/dev/null || true; \
+  rm -rf uv.tar.gz checksums.txt uv-${UV_ARCH}
+
+# Install Python via uv
+RUN /usr/local/bin/uv python install
+
+# Install Node.js global packages
+RUN npm install -g @anthropic-ai/claude-code @beads/bd
+
+# Install gastown (gt)
+RUN go install github.com/steveyegge/gastown/cmd/gt@${GASTOWN_VERSION}
+
+# =============================================================================
+# Stage 2: Runtime - Minimal image with only necessary tools
+# =============================================================================
+FROM node:22-trixie-slim@sha256:2e6ac793e95954b95c344f60ba9b57606ac5465297ed521f6b31e763b2fdffed
+
+# Install only runtime dependencies (no build tools, no curl/wget/vim/nano/gh)
+RUN apt-get update && apt-get install -y --no-install-recommends \
   less \
   git \
-  curl \
-  wget \
   procps \
   fzf \
   zsh \
   man-db \
   unzip \
   gnupg2 \
-  gh \
   iptables \
+  ip6tables \
   ipset \
   iproute2 \
   dnsutils \
   aggregate \
   jq \
-  nano \
-  vim \
   ca-certificates \
   sudo \
   tmux \
   sqlite3 \
+  libssl3 \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Go
-ARG TARGETARCH
-ENV GO_VERSION=1.24.12
-RUN curl -fsSL https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xzf -
+# Copy Go from builder
+COPY --from=builder /usr/local/go /usr/local/go
 ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH="/home/node/go"
 ENV PATH="${GOPATH}/bin:${PATH}"
 
-# Install Rust (as node user later, but prepare rustup)
+# Copy Rust from builder (with correct permissions)
+COPY --from=builder /usr/local/rustup /usr/local/rustup
+COPY --from=builder /usr/local/cargo /usr/local/cargo
 ENV RUSTUP_HOME=/usr/local/rustup
 ENV CARGO_HOME=/usr/local/cargo
 ENV PATH="/usr/local/cargo/bin:${PATH}"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path \
-  && chmod -R a+rwx ${RUSTUP_HOME} ${CARGO_HOME}
 
-# Install uv and Python (uv manages Python directly)
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
-  && mv /root/.local/bin/uv /usr/local/bin/uv \
-  && mv /root/.local/bin/uvx /usr/local/bin/uvx 2>/dev/null || true
-RUN uv python install
+# Copy uv from builder
+COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
+COPY --from=builder /usr/local/bin/uvx /usr/local/bin/uvx
+COPY --from=builder /root/.local/share/uv /usr/local/share/uv
+ENV UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python
 
-# Install Node.js global packages
-RUN npm install -g @anthropic-ai/claude-code
-RUN npm install -g @beads/bd
+# Copy Node.js global packages from builder
+COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=builder /usr/local/bin/claude /usr/local/bin/claude
+COPY --from=builder /usr/local/bin/bd /usr/local/bin/bd
 
-# Install gastown (gt)
-ARG GASTOWN_VERSION=v0.5.0
-RUN go install github.com/steveyegge/gastown/cmd/gt@${GASTOWN_VERSION}
+# Copy gastown (gt) from builder
+COPY --from=builder /root/go/bin/gt /usr/local/bin/gt
 
 # Create workspace, go, and claude config directories
 RUN mkdir -p /home/node/go /home/node/.claude && chown -R node:node /home/node/go /home/node/.claude
 
 # Configure sudo access for node user (passwordless for network sandbox script only)
+# Input validation is done in the script itself
 RUN echo "node ALL=(ALL) NOPASSWD: /usr/local/bin/network-sandbox.sh" > /etc/sudoers.d/node \
   && chmod 0440 /etc/sudoers.d/node
 

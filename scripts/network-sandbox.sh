@@ -1,18 +1,112 @@
 #!/bin/bash
 # Network isolation script for gastown sandbox
-# This script configures iptables to restrict network access
+# This script configures iptables/ip6tables to restrict network access
 
 set -e
 
 # Configuration via environment variables
-SANDBOX_MODE="${SANDBOX_MODE:-strict}"  # strict, permissive, or disabled
-ALLOWED_HOSTS="${ALLOWED_HOSTS:-}"       # Comma-separated list of allowed hosts/IPs
-ALLOW_DNS="${ALLOW_DNS:-true}"           # Allow DNS lookups
-ALLOW_LOCALHOST="${ALLOW_LOCALHOST:-true}"  # Allow localhost traffic
-DASHBOARD_PORT="${DASHBOARD_PORT:-8080}"    # Port for inbound dashboard access
+SANDBOX_MODE="${SANDBOX_MODE:-strict}"
+ALLOWED_HOSTS="${ALLOWED_HOSTS:-}"
+ALLOW_DNS="${ALLOW_DNS:-true}"
+ALLOW_LOCALHOST="${ALLOW_LOCALHOST:-true}"
+DASHBOARD_PORT="${DASHBOARD_PORT:-8080}"
 
 log() {
     echo "[network-sandbox] $1"
+}
+
+error() {
+    echo "[network-sandbox] ERROR: $1" >&2
+}
+
+# Input validation functions
+validate_sandbox_mode() {
+    case "$SANDBOX_MODE" in
+        strict|permissive|disabled)
+            return 0
+            ;;
+        *)
+            error "Invalid SANDBOX_MODE: '$SANDBOX_MODE'. Must be 'strict', 'permissive', or 'disabled'"
+            exit 1
+            ;;
+    esac
+}
+
+validate_boolean() {
+    local name="$1"
+    local value="$2"
+    case "$value" in
+        true|false)
+            return 0
+            ;;
+        *)
+            error "Invalid $name: '$value'. Must be 'true' or 'false'"
+            exit 1
+            ;;
+    esac
+}
+
+validate_port() {
+    local name="$1"
+    local value="$2"
+    if [[ ! "$value" =~ ^[0-9]+$ ]] || [ "$value" -lt 1 ] || [ "$value" -gt 65535 ]; then
+        error "Invalid $name: '$value'. Must be a port number between 1 and 65535"
+        exit 1
+    fi
+}
+
+# Validate hostname/IP - only allow safe characters
+validate_host() {
+    local host="$1"
+    # Allow: alphanumeric, dots, hyphens, and CIDR notation (/)
+    # Reject: shell metacharacters, spaces, quotes, semicolons, etc.
+    if [[ ! "$host" =~ ^[a-zA-Z0-9.\-/]+$ ]]; then
+        error "Invalid hostname/IP: '$host'. Contains disallowed characters"
+        return 1
+    fi
+    # Additional check: must not start/end with dot or hyphen
+    if [[ "$host" =~ ^[.\-] ]] || [[ "$host" =~ [.\-]$ ]]; then
+        error "Invalid hostname/IP: '$host'. Cannot start/end with dot or hyphen"
+        return 1
+    fi
+    return 0
+}
+
+# Validate all inputs before proceeding
+validate_inputs() {
+    log "Validating configuration..."
+    validate_sandbox_mode
+    validate_boolean "ALLOW_DNS" "$ALLOW_DNS"
+    validate_boolean "ALLOW_LOCALHOST" "$ALLOW_LOCALHOST"
+    validate_port "DASHBOARD_PORT" "$DASHBOARD_PORT"
+    log "Configuration validated"
+}
+
+setup_ipv6_blocking() {
+    log "Blocking all IPv6 traffic..."
+
+    # Check if ip6tables is available
+    if ! command -v ip6tables &> /dev/null; then
+        log "Warning: ip6tables not available, IPv6 may not be blocked"
+        return
+    fi
+
+    # Flush existing IPv6 rules
+    ip6tables -F OUTPUT 2>/dev/null || true
+    ip6tables -F INPUT 2>/dev/null || true
+
+    # Allow localhost IPv6 if enabled
+    if [[ "$ALLOW_LOCALHOST" == "true" ]]; then
+        ip6tables -A OUTPUT -o lo -j ACCEPT
+        ip6tables -A INPUT -i lo -j ACCEPT
+    fi
+
+    # Drop all other IPv6 traffic
+    ip6tables -P INPUT DROP 2>/dev/null || ip6tables -A INPUT -j DROP
+    ip6tables -P OUTPUT DROP 2>/dev/null || ip6tables -A OUTPUT -j DROP
+    ip6tables -P FORWARD DROP 2>/dev/null || true
+
+    log "IPv6 traffic blocked"
 }
 
 setup_strict_isolation() {
@@ -48,11 +142,24 @@ setup_strict_isolation() {
 
     # Allow specific hosts if configured
     if [[ -n "$ALLOWED_HOSTS" ]]; then
-        IFS=',' read -ra HOSTS <<< "$ALLOWED_HOSTS"
-        for host in "${HOSTS[@]}"; do
-            host=$(echo "$host" | xargs)  # trim whitespace
-            if [[ -n "$host" ]]; then
-                # Resolve hostname to IP if needed
+        # Use read with delimiter, avoiding xargs
+        while IFS=',' read -ra HOSTS; do
+            for host in "${HOSTS[@]}"; do
+                # Trim whitespace using parameter expansion (safe, no external commands)
+                host="${host#"${host%%[![:space:]]*}"}"
+                host="${host%"${host##*[![:space:]]}"}"
+
+                if [[ -z "$host" ]]; then
+                    continue
+                fi
+
+                # Validate the host before using it
+                if ! validate_host "$host"; then
+                    log "Skipping invalid host: $host"
+                    continue
+                fi
+
+                # Check if it's an IP address or CIDR
                 if [[ "$host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(/[0-9]+)?$ ]]; then
                     iptables -A OUTPUT -d "$host" -j ACCEPT
                     log "Allowed IP: $host"
@@ -68,8 +175,8 @@ setup_strict_isolation() {
                         log "Warning: Could not resolve hostname: $host"
                     fi
                 fi
-            fi
-        done
+            done
+        done <<< "$ALLOWED_HOSTS"
     fi
 
     # Drop all other traffic
@@ -103,6 +210,14 @@ setup_permissive_isolation() {
     log "Permissive network isolation enabled - dangerous ports blocked"
 }
 
+# Main execution
+validate_inputs
+
+# Always block IPv6 unless disabled
+if [[ "$SANDBOX_MODE" != "disabled" ]]; then
+    setup_ipv6_blocking
+fi
+
 case "$SANDBOX_MODE" in
     strict)
         setup_strict_isolation
@@ -112,10 +227,6 @@ case "$SANDBOX_MODE" in
         ;;
     disabled)
         log "Network isolation disabled"
-        ;;
-    *)
-        log "Unknown SANDBOX_MODE: $SANDBOX_MODE (using strict)"
-        setup_strict_isolation
         ;;
 esac
 
