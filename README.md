@@ -131,6 +131,50 @@ The Makefile will automatically:
 
 This enables fully automated, reproducible Claude Code authentication in CI/CD environments.
 
+## Getting the GitHub Token
+
+The container requires a GitHub Personal Access Token to authenticate git operations (push, pull, clone). The Makefile reads this automatically from the macOS keychain entry `gastown-github-token`.
+
+To create a GitHub token:
+
+1. Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Click "Generate new token (classic)"
+3. Give it a descriptive name (e.g., "Gastown Docker Sandbox")
+4. Select scopes: `repo` (full control of private repositories)
+5. Generate and copy the token
+
+Store it in the keychain entry that the Makefile expects:
+
+```bash
+security add-generic-password -a $USER -s "gastown-github-token" -w "<your-github-token>"
+```
+
+The Makefile will automatically:
+1. Read the token from the keychain
+2. Pass it to the container as `GITHUB_TOKEN`
+3. The git credential helper uses this token to authenticate all git operations
+
+Without this token, git push/pull operations will fail with authentication errors.
+
+## Git Configuration
+
+The Docker image automatically copies your local git identity (name and email) from your host machine into the container. This happens at **build time**.
+
+The Makefile reads from your local git config:
+```bash
+git config --get user.name
+git config --get user.email
+```
+
+These values are baked into the Docker image via build args, so all commits made inside the container will be attributed to you. If you change your local git config, you'll need to rebuild the image:
+
+```bash
+make clean
+make build
+```
+
+If git identity is not configured locally, you'll see a warning during build, but the image will still build successfully.
+
 ## Requirements
 
 - Docker with `--cap-add=NET_ADMIN` support
