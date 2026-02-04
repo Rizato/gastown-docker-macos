@@ -38,6 +38,9 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
 # Install Python via uv
 RUN /usr/local/bin/uv python install
 
+# Install Claude Code (native installer)
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
 
 # =============================================================================
 # Stage 2: Runtime - Minimal image with only necessary tools
@@ -76,8 +79,8 @@ COPY --from=builder /usr/local/bin/uvx /usr/local/bin/uvx
 COPY --from=builder /root/.local/share/uv /usr/local/share/uv
 ENV UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python
 
-# Install Claude Code (native)
-RUN curl -fsSL https://claude.ai/install.sh | bash
+# Copy Claude Code from builder
+COPY --from=builder /root/.local/bin/claude /usr/local/bin/claude
 
 # Install gastown (gt)
 ARG GASTOWN_VERSION=v0.5.0
