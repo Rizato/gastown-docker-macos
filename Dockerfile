@@ -79,9 +79,6 @@ COPY --from=builder /usr/local/bin/uvx /usr/local/bin/uvx
 COPY --from=builder /root/.local/share/uv /usr/local/share/uv
 ENV UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python
 
-# Copy Claude Code from builder
-COPY --from=builder /root/.local/bin/claude /usr/local/bin/claude
-
 # Install gastown (gt)
 ARG GASTOWN_VERSION=v0.5.0
 RUN go install github.com/steveyegge/gastown/cmd/gt@${GASTOWN_VERSION}
@@ -89,8 +86,12 @@ RUN go install github.com/steveyegge/gastown/cmd/gt@${GASTOWN_VERSION}
 # Install beads via npm
 RUN npm install -g @beads/bd
 
-# Create workspace, go, and claude config directories
-RUN mkdir -p /home/node/go /home/node/.claude && chown -R node:node /home/node/go /home/node/.claude
+# Create workspace, go, claude config, and local bin directories
+RUN mkdir -p /home/node/go /home/node/.claude /home/node/.local/bin && chown -R node:node /home/node/go /home/node/.claude /home/node/.local
+
+# Copy Claude Code from builder to node user's .local/bin
+COPY --from=builder /root/.local/bin/claude /home/node/.local/bin/claude
+RUN chown node:node /home/node/.local/bin/claude
 
 # Copy claude config
 COPY .claude.json /home/node/.claude.json
@@ -101,6 +102,9 @@ COPY scripts/git-credential-github-token /usr/local/bin/git-credential-github-to
 RUN chmod +x /usr/local/bin/git-credential-github-token
 
 WORKDIR /workspace
+
+# Add node user's .local/bin to PATH for Claude
+ENV PATH="/home/node/.local/bin:${PATH}"
 
 # Expose gastown dashboard port
 EXPOSE 8080
