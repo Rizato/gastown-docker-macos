@@ -1,4 +1,4 @@
-# Gastown Docker Environment
+# Gastown Docker macOS
 
 A Docker-based environment for running [Gastown](https://github.com/steveyegge/gastown) isolated from your Mac. Provides a reproducible containerized workspace where Gastown runs Claude Code in bypass permission mode.
 

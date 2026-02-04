@@ -1,6 +1,6 @@
-# Gastown Sandbox Container
-CONTAINER_NAME := gastown-sandbox
-IMAGE_NAME := gastown-sandbox
+# Gastown Docker macOS Container
+CONTAINER_NAME := gastown-docker-macos
+IMAGE_NAME := gastown
 DASHBOARD_PORT := 8080
 
 # Volume directory to mount into /workspace (can be overridden via environment)
