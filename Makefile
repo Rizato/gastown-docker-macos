@@ -7,7 +7,7 @@ DASHBOARD_PORT := 3000
 VOLUME_DIR ?= $(PWD)/gt
 
 # Secrets from macOS Keychain (keychain item names)
-ANTHROPIC_API_KEY := $(shell security find-generic-password -s "anthropic-api-key" -w 2>/dev/null)
+CLAUDE_CODE_OAUTH_TOKEN := $(shell security find-generic-password -s "claude-code-oauth-token" -w 2>/dev/null)
 GITHUB_TOKEN := $(shell security find-generic-password -s "gastown-github-token" -w 2>/dev/null)
 
 # Network isolation configuration (can be overridden from command line)
@@ -41,14 +41,14 @@ start: build
 		docker start $(CONTAINER_NAME); \
 	else \
 		echo "Creating and starting container..."; \
-		if [ -z "$(ANTHROPIC_API_KEY)" ]; then echo "ERROR: anthropic-api-key not found in keychain. Run: security add-generic-password -a \$$USER -s anthropic-api-key -w"; exit 1; fi; \
+		if [ -z "$(CLAUDE_CODE_OAUTH_TOKEN)" ]; then echo "ERROR: claude-code-oauth-token not found in keychain. Run: security add-generic-password -a \$$USER -s claude-code-oauth-token -w"; exit 1; fi; \
 		if [ -z "$(GITHUB_TOKEN)" ]; then echo "WARNING: gastown-github-token not found in keychain. Git push/pull will not work."; fi; \
 		docker run -d \
 			--name $(CONTAINER_NAME) \
 			--cap-add=NET_ADMIN \
 			-v "$(VOLUME_DIR):/workspace" \
 			-p $(DASHBOARD_PORT):$(DASHBOARD_PORT) \
-			-e ANTHROPIC_API_KEY=$(ANTHROPIC_API_KEY) \
+			-e CLAUDE_CODE_OAUTH_TOKEN=$(CLAUDE_CODE_OAUTH_TOKEN) \
 			-e GITHUB_TOKEN=$(GITHUB_TOKEN) \
 			-e SANDBOX_MODE=$(SANDBOX_MODE) \
 			-e ALLOW_DNS=$(ALLOW_DNS) \

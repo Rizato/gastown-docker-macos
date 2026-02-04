@@ -111,4 +111,4 @@ make start VOLUME_DIR=/path/to/workspace
 ## Requirements
 
 - Docker with `--cap-add=NET_ADMIN` support
-- `ANTHROPIC_API_KEY` environment variable (for Claude Code / Gastown)
+- `CLAUDE_CODE_OAUTH_TOKEN` environment variable (for Claude Code / Gastown)
