@@ -20,7 +20,6 @@ GIT_EMAIL := $(shell git config --get user.email 2>/dev/null)
 PASSTHROUGH_TARGETS := gt mayor rig crew
 ifneq ($(filter $(firstword $(MAKECMDGOALS)),$(PASSTHROUGH_TARGETS)),)
   ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
-  $(eval $(ARGS):;@:)
 endif
 
 # Build the Docker image
@@ -129,3 +128,7 @@ rig:
 # Usage: make crew add human1, make crew list
 crew:
 	docker exec -it $(CONTAINER_NAME) gt crew $(ARGS)
+
+# Catch-all rule for passthrough arguments (must be last)
+%:
+	@:
