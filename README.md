@@ -108,6 +108,26 @@ make start VOLUME_DIR=/path/to/workspace
 - **Languages**: Node.js, Go 1.24, Rust, Python (via uv)
 - **AI Tools**: Claude Code, Gastown (gt), beads (bd)
 
+## Getting the Claude OAuth Token
+
+The container requires `CLAUDE_CODE_OAUTH_TOKEN` to authenticate with Claude. The Makefile reads this automatically from the macOS keychain entry `claude-code-oauth-token`.
+
+> **Note:** Avoid using `claude setup_token` to generate a token — it will kill your currently logged-in Claude Code session.
+
+Instead, if you're already logged into Claude Code on macOS, extract the OAuth token from the default credentials entry:
+
+```bash
+security find-generic-password -s "Claude Code-credentials" -w
+```
+
+This returns a JSON blob. Pull the `oauthToken` value from it and store it in a dedicated keychain entry that the Makefile expects:
+
+```bash
+security add-generic-password -a $USER -s "claude-code-oauth-token" -w "<your-oauth-token>"
+```
+
+The Makefile will then pick it up automatically on `make start`.
+
 ## Requirements
 
 - Docker with `--cap-add=NET_ADMIN` support
