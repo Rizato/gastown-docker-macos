@@ -112,19 +112,24 @@ make start VOLUME_DIR=/path/to/workspace
 
 The container requires `CLAUDE_CODE_OAUTH_TOKEN` to authenticate with Claude. The Makefile reads this automatically from the macOS keychain entry `claude-code-oauth-token`.
 
-First, get your OAuth token using:
+To set up authentication, run:
 
 ```bash
 claude setup-token
 ```
 
-Then store the token in the keychain entry that the Makefile expects:
+This command will output your OAuth token. Store it in the keychain entry that the Makefile expects:
 
 ```bash
 security add-generic-password -a $USER -s "claude-code-oauth-token" -w "<your-oauth-token>"
 ```
 
-The Makefile will then pick it up automatically on `make start`.
+The Makefile will automatically:
+1. Read the token from the keychain
+2. Pass it to the container as `CLAUDE_CODE_OAUTH_TOKEN`
+3. The entrypoint creates `~/.claude.json` with `hasCompletedOnboarding: true` to skip interactive setup
+
+This enables fully automated, reproducible Claude Code authentication in CI/CD environments.
 
 ## Requirements
 
