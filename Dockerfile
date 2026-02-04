@@ -5,8 +5,7 @@ FROM node:22-trixie-slim AS builder
 
 # Build arguments
 ARG TARGETARCH
-ARG GO_VERSION=1.25.6
-ARG GASTOWN_VERSION=v0.5.0
+ARG GO_VERSION=1.24.12
 ARG UV_VERSION=0.5.20
 
 # Install build dependencies (these won't be in final image)
@@ -41,16 +40,15 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
 # Install Python via uv
 RUN /usr/local/bin/uv python install
 
-# Install Node.js global packages
-RUN npm install -g @anthropic-ai/claude-code @beads/bd
-
-# Install gastown (gt)
-RUN go install github.com/steveyegge/gastown/cmd/gt@${GASTOWN_VERSION}
 
 # =============================================================================
 # Stage 2: Runtime - Minimal image with only necessary tools
 # =============================================================================
 FROM node:22-trixie-slim
+
+ARG GASTOWN_VERSION=v0.5.0
+ARG GIT_USERNAME
+ARG GIT_EMAIL
 
 # Install only runtime dependencies (no build tools, no wget/vim/nano/gh)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -91,12 +89,18 @@ COPY --from=builder /root/.local/share/uv /usr/local/share/uv
 ENV UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python
 
 # Copy Node.js global packages from builder
-COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
-COPY --from=builder /usr/local/bin/claude /usr/local/bin/claude
-COPY --from=builder /usr/local/bin/bd /usr/local/bin/bd
+#COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+#COPY --from=builder /usr/local/bin/claude /usr/local/bin/claude
+#COPY --from=builder /usr/local/bin/bd /usr/local/bin/bd
+#
+## Copy gastown (gt) from builder
+#COPY --from=builder /root/go/bin/gt /usr/local/bin/gt
 
-# Copy gastown (gt) from builder
-COPY --from=builder /root/go/bin/gt /usr/local/bin/gt
+# Install Node.js global packages
+RUN npm install -g @anthropic-ai/claude-code @beads/bd
+
+# Install gastown (gt)
+RUN go install github.com/steveyegge/gastown/cmd/gt@${GASTOWN_VERSION}
 
 # Create workspace, go, and claude config directories
 RUN mkdir -p /home/node/go /home/node/.claude && chown -R node:node /home/node/go /home/node/.claude
@@ -109,6 +113,11 @@ RUN chown node:node /home/node/.claude.json
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY scripts/git-credential-github-token /usr/local/bin/git-credential-github-token
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/git-credential-github-token
+
+# Setup git config
+RUN git config --global credential.helper /usr/local/bin/git-credential-github-token
+RUN git config --global user.name "${GIT_USERNAME}"
+RUN git config --global user.email "${GIT_EMAIL}"
 
 WORKDIR /workspace
 
@@ -123,5 +132,4 @@ SHELL ["/bin/bash", "-c"]
 # Run as node user
 USER node
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["bash"]
