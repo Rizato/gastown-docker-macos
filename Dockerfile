@@ -94,13 +94,6 @@ RUN chown node:node /home/node/.claude.json
 COPY scripts/git-credential-github-token /usr/local/bin/git-credential-github-token
 RUN chmod +x /usr/local/bin/git-credential-github-token
 
-# Setup git config
-ARG GIT_USERNAME
-ARG GIT_EMAIL
-RUN git config --global credential.helper /usr/local/bin/git-credential-github-token
-RUN git config --global user.name "${GIT_USERNAME}"
-RUN git config --global user.email "${GIT_EMAIL}"
-
 WORKDIR /workspace
 
 # Expose gastown dashboard port
@@ -113,5 +106,12 @@ SHELL ["/bin/bash", "-c"]
 
 # Run as node user
 USER node
+
+# Setup git config
+ARG GIT_USERNAME
+ARG GIT_EMAIL
+RUN git config --global credential.helper /usr/local/bin/git-credential-github-token
+RUN git config --global user.name "${GIT_USERNAME}"
+RUN git config --global user.email "${GIT_EMAIL}"
 
 CMD ["bash"]
