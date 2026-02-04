@@ -36,7 +36,6 @@ The sandbox implements network isolation using iptables with three modes:
 - **Non-root execution**: Runs as the `node` user, not root
 - **Minimal sudo**: Passwordless sudo granted only for `/usr/local/bin/network-sandbox.sh`
 - **Capability-limited**: Requires only `NET_ADMIN` capability (for iptables)
-- **No persistent state**: Clone fresh per project for full isolation
 
 ### What's Blocked (Strict Mode)
 
@@ -108,30 +107,6 @@ make start VOLUME_DIR=/path/to/workspace
 
 - **Languages**: Node.js, Go 1.24, Rust, Python (via uv)
 - **AI Tools**: Claude Code, Gastown (gt), beads (bd)
-- **Dev Tools**: git, gh (GitHub CLI), build-essential, cmake
-- **Utilities**: fzf, tmux, vim, nano, jq, sqlite3
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│  Host Machine                                   │
-│  ┌───────────────────────────────────────────┐  │
-│  │  Docker Container (gastown-sandbox)       │  │
-│  │  ┌─────────────────────────────────────┐  │  │
-│  │  │  network-sandbox.sh (entrypoint)    │  │  │
-│  │  │  - Configures iptables rules        │  │  │
-│  │  │  - Drops to node user               │  │  │
-│  │  └─────────────────────────────────────┘  │  │
-│  │  ┌─────────────────────────────────────┐  │  │
-│  │  │  Application (as node user)         │  │  │
-│  │  │  - gt, claude, bd, etc.             │  │  │
-│  │  └─────────────────────────────────────┘  │  │
-│  │  /workspace ──► ./gt (volume mount)       │  │
-│  └───────────────────────────────────────────┘  │
-│  Port 3000 ──► Dashboard                        │
-└─────────────────────────────────────────────────┘
-```
 
 ## Requirements
 
