@@ -27,6 +27,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   vim \
   ca-certificates \
   sudo \
+  tmux \
+  sqlite3 \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Go
@@ -51,7 +53,10 @@ RUN uv python install
 
 # Install Node.js global packages
 RUN npm install -g @anthropic-ai/claude-code
-RUN npm install -g @gastown/gt
+RUN npm install -g @beads/bd
+
+# Install gastown (gt)
+RUN go install github.com/steveyegge/gastown/cmd/gt@v0.5.0
 
 # Create workspace, go, and claude config directories
 RUN mkdir -p /home/node/go /home/node/.claude && chown -R node:node /home/node/go /home/node/.claude
