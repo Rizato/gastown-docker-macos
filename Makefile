@@ -55,7 +55,6 @@ start: build
 			$(IMAGE_NAME) \
 			tail -f /dev/null; \
 	fi
-	@echo "Container running. Dashboard available at http://localhost:$(DASHBOARD_PORT)"
 
 # Stop the container
 stop:
