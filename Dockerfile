@@ -19,52 +19,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Go with checksum verification
-RUN set -eux; \
-  curl -fsSL -o go.tar.gz "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz"; \
-  curl -fsSL -o go.tar.gz.sha256 "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz.sha256"; \
-  echo "$(cat go.tar.gz.sha256) go.tar.gz" | sha256sum -c -; \
-  tar -C /usr/local -xzf go.tar.gz; \
-  rm go.tar.gz go.tar.gz.sha256
+# Install Go
+RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz" | tar -C /usr/local -xzf -
 
 ENV PATH="/usr/local/go/bin:${PATH}"
 ENV GOPATH="/root/go"
 ENV PATH="${GOPATH}/bin:${PATH}"
 
-# Install Rust with checksum verification
+# Install Rust
 ENV RUSTUP_HOME=/usr/local/rustup
 ENV CARGO_HOME=/usr/local/cargo
 ENV PATH="/usr/local/cargo/bin:${PATH}"
 
-RUN set -eux; \
-  curl -fsSL -o rustup-init "https://static.rust-lang.org/rustup/dist/${TARGETARCH}-unknown-linux-gnu/rustup-init"; \
-  curl -fsSL -o rustup-init.sha256 "https://static.rust-lang.org/rustup/dist/${TARGETARCH}-unknown-linux-gnu/rustup-init.sha256"; \
-  # The sha256 file has a path prefix, extract just the hash
-  expected_hash=$(awk '{print $1}' rustup-init.sha256); \
-  echo "${expected_hash}  rustup-init" | sha256sum -c -; \
-  chmod +x rustup-init; \
-  ./rustup-init -y --no-modify-path; \
-  rm rustup-init rustup-init.sha256; \
-  # Secure permissions (not world-writable)
-  chmod -R 755 ${RUSTUP_HOME} ${CARGO_HOME}; \
-  find ${RUSTUP_HOME} ${CARGO_HOME} -type f -exec chmod 644 {} \;; \
-  chmod 755 ${CARGO_HOME}/bin/*
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 
-# Install uv with checksum verification from GitHub releases
-RUN set -eux; \
-  case "${TARGETARCH}" in \
-    amd64) UV_ARCH="x86_64-unknown-linux-gnu" ;; \
-    arm64) UV_ARCH="aarch64-unknown-linux-gnu" ;; \
-    *) echo "Unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
-  esac; \
-  curl -fsSL -o uv.tar.gz "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${UV_ARCH}.tar.gz"; \
-  curl -fsSL -o checksums.txt "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${UV_ARCH}.tar.gz.sha256"; \
-  echo "$(cat checksums.txt)  uv.tar.gz" | sha256sum -c -; \
-  tar -xzf uv.tar.gz; \
-  mv uv-${UV_ARCH}/uv /usr/local/bin/uv; \
-  mv uv-${UV_ARCH}/uvx /usr/local/bin/uvx 2>/dev/null || true; \
-  chmod 755 /usr/local/bin/uv /usr/local/bin/uvx 2>/dev/null || true; \
-  rm -rf uv.tar.gz checksums.txt uv-${UV_ARCH}
+# Install uv (installer puts binaries in ~/.local/bin, move to /usr/local/bin)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+  && mv /root/.local/bin/uv /usr/local/bin/uv \
+  && mv /root/.local/bin/uvx /usr/local/bin/uvx
 
 # Install Python via uv
 RUN /usr/local/bin/uv python install
@@ -80,10 +52,11 @@ RUN go install github.com/steveyegge/gastown/cmd/gt@${GASTOWN_VERSION}
 # =============================================================================
 FROM node:22-trixie-slim
 
-# Install only runtime dependencies (no build tools, no curl/wget/vim/nano/gh)
+# Install only runtime dependencies (no build tools, no wget/vim/nano/gh)
 RUN apt-get update && apt-get install -y --no-install-recommends \
   less \
   git \
+  curl \
   procps \
   fzf \
   zsh \
