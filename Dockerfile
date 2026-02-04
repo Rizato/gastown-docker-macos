@@ -76,8 +76,11 @@ COPY --from=builder /usr/local/bin/uvx /usr/local/bin/uvx
 COPY --from=builder /root/.local/share/uv /usr/local/share/uv
 ENV UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python
 
-# Install Node.js global packages
-RUN npm install -g @anthropic-ai/claude-code @beads/bd
+# Install Claude Code (native)
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
+# Install beads via npm
+RUN npm install -g @beads/bd
 
 # Install gastown (gt)
 ARG GASTOWN_VERSION=v0.5.0
