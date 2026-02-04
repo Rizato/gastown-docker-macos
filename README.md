@@ -7,10 +7,12 @@ A Docker-based environment for running [Gastown](https://github.com/steveyegge/g
 **Clone this repository fresh for each Gastown project.** This repo contains the Gastown installation baked into the Docker image, providing isolation between projects. The `gt/` directory serves as the workspace volume and is gitignored.
 
 ```bash
-git clone <this-repo> my-project-workspace
+git clone git@github.com:Rizato/gastown-docker-macos.git my-project-workspace
 cd my-project-workspace
 make start
-make attach
+make install
+make dashboard
+make mayor attach
 ```
 
 ## Why Docker?
