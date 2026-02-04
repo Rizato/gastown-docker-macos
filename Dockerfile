@@ -38,6 +38,9 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
 # Install Python via uv
 RUN /usr/local/bin/uv python install
 
+# Install Claude Code (native installer)
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
 
 # =============================================================================
 # Stage 2: Runtime - Minimal image with only necessary tools
@@ -76,15 +79,19 @@ COPY --from=builder /usr/local/bin/uvx /usr/local/bin/uvx
 COPY --from=builder /root/.local/share/uv /usr/local/share/uv
 ENV UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python
 
-# Install Node.js global packages
-RUN npm install -g @anthropic-ai/claude-code @beads/bd
-
 # Install gastown (gt)
 ARG GASTOWN_VERSION=v0.5.0
 RUN go install github.com/steveyegge/gastown/cmd/gt@${GASTOWN_VERSION}
 
-# Create workspace, go, and claude config directories
-RUN mkdir -p /home/node/go /home/node/.claude && chown -R node:node /home/node/go /home/node/.claude
+# Install beads via npm
+RUN npm install -g @beads/bd
+
+# Create workspace, go, claude config, and local bin directories
+RUN mkdir -p /home/node/go /home/node/.claude /home/node/.local/bin && chown -R node:node /home/node/go /home/node/.claude /home/node/.local
+
+# Copy Claude Code from builder to node user's .local/bin
+COPY --from=builder /root/.local/bin/claude /home/node/.local/bin/claude
+RUN chown node:node /home/node/.local/bin/claude
 
 # Copy claude config
 COPY .claude.json /home/node/.claude.json
@@ -95,6 +102,9 @@ COPY scripts/git-credential-github-token /usr/local/bin/git-credential-github-to
 RUN chmod +x /usr/local/bin/git-credential-github-token
 
 WORKDIR /workspace
+
+# Add node user's .local/bin to PATH for Claude
+ENV PATH="/home/node/.local/bin:${PATH}"
 
 # Expose gastown dashboard port
 EXPOSE 8080
