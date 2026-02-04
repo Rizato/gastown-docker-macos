@@ -17,7 +17,14 @@ ALLOW_DNS ?= true
 # ALLOW_LOCALHOST: true/false - allow localhost traffic
 ALLOW_LOCALHOST ?= true
 
-.PHONY: build start stop restart attach bash gt mayor clean logs
+.PHONY: build start stop restart attach bash gt mayor clean logs status claude install rig crew
+
+# Argument capture for passthrough commands (allows: make gt status, make rig add foo, etc.)
+PASSTHROUGH_TARGETS := gt mayor rig crew
+ifneq ($(filter $(firstword $(MAKECMDGOALS)),$(PASSTHROUGH_TARGETS)),)
+  ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  $(eval $(ARGS):;@:)
+endif
 
 # Build the Docker image
 build:
@@ -62,14 +69,14 @@ bash:
 	docker exec -it $(CONTAINER_NAME) bash
 
 # Execute gastown (gt) commands directly
-# Usage: make gt CMD="status" or make gt CMD="agent list"
+# Usage: make gt status, make gt agent list
 gt:
-	docker exec -it $(CONTAINER_NAME) gt $(CMD)
+	docker exec -it $(CONTAINER_NAME) gt $(ARGS)
 
 # Run mayor command (gastown mayor)
-# Usage: make mayor CMD="status" or just make mayor
+# Usage: make mayor status, make mayor
 mayor:
-	docker exec -it $(CONTAINER_NAME) gt mayor $(CMD)
+	docker exec -it $(CONTAINER_NAME) gt mayor $(ARGS)
 
 # View container logs
 logs:
@@ -89,3 +96,17 @@ status:
 # Run claude-code in the container
 claude:
 	docker exec -it $(CONTAINER_NAME) claude
+
+# Initialize gastown with git integration
+install:
+	docker exec -it $(CONTAINER_NAME) gt install --git
+
+# Add git repos to gastown
+# Usage: make rig add myrepo, make rig list
+rig:
+	docker exec -it $(CONTAINER_NAME) gt rig $(ARGS)
+
+# Add human worktrees to gastown
+# Usage: make crew add human1, make crew list
+crew:
+	docker exec -it $(CONTAINER_NAME) gt crew $(ARGS)
