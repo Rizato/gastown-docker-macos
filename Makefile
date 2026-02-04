@@ -1,7 +1,7 @@
 # Gastown Sandbox Container
 CONTAINER_NAME := gastown-sandbox
 IMAGE_NAME := gastown-sandbox
-DASHBOARD_PORT := 3000
+DASHBOARD_PORT := 8080
 
 # Volume directory to mount into /workspace (can be overridden via environment)
 VOLUME_DIR ?= $(PWD)/gt
@@ -9,17 +9,6 @@ VOLUME_DIR ?= $(PWD)/gt
 # Secrets from macOS Keychain (keychain item names)
 CLAUDE_CODE_OAUTH_TOKEN := $(shell security find-generic-password -s "claude-code-oauth-token" -w 2>/dev/null)
 GITHUB_TOKEN := $(shell security find-generic-password -s "gastown-github-token" -w 2>/dev/null)
-
-# Network isolation configuration (can be overridden from command line)
-# SANDBOX_MODE: strict (whitelist only), permissive (block dangerous ports), disabled
-SANDBOX_MODE ?= strict
-# ALLOWED_HOSTS: comma-separated list of allowed hosts/IPs (used in strict mode)
-# Leave empty to use Dockerfile defaults
-ALLOWED_HOSTS ?=
-# ALLOW_DNS: true/false - allow DNS lookups
-ALLOW_DNS ?= true
-# ALLOW_LOCALHOST: true/false - allow localhost traffic
-ALLOW_LOCALHOST ?= true
 
 .PHONY: build start stop restart attach bash gt mayor clean logs status claude install rig crew dashboard dashboard-attach dashboard-stop
 
@@ -34,7 +23,7 @@ endif
 build:
 	docker build -t $(IMAGE_NAME) .
 
-# Start the container (detached, with volume mount, port forward, and network isolation)
+# Start the container (detached, with volume mount and port forward)
 start: build
 	@if docker ps -a --format '{{.Names}}' | grep -q "^$(CONTAINER_NAME)$$"; then \
 		echo "Container exists, starting..."; \
@@ -45,16 +34,11 @@ start: build
 		if [ -z "$(GITHUB_TOKEN)" ]; then echo "WARNING: gastown-github-token not found in keychain. Git push/pull will not work."; fi; \
 		docker run -d \
 			--name $(CONTAINER_NAME) \
-			--cap-add=NET_ADMIN \
 			-v "$(VOLUME_DIR):/workspace" \
 			-p $(DASHBOARD_PORT):$(DASHBOARD_PORT) \
 			-e CLAUDE_CODE_OAUTH_TOKEN=$(CLAUDE_CODE_OAUTH_TOKEN) \
 			-e GITHUB_TOKEN=$(GITHUB_TOKEN) \
-			-e SANDBOX_MODE=$(SANDBOX_MODE) \
-			-e ALLOW_DNS=$(ALLOW_DNS) \
-			-e ALLOW_LOCALHOST=$(ALLOW_LOCALHOST) \
 			-e DASHBOARD_PORT=$(DASHBOARD_PORT) \
-			$(if $(ALLOWED_HOSTS),-e ALLOWED_HOSTS="$(ALLOWED_HOSTS)",) \
 			$(IMAGE_NAME) \
 			tail -f /dev/null; \
 	fi

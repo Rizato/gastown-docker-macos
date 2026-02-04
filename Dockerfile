@@ -63,11 +63,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   man-db \
   unzip \
   gnupg2 \
-  iptables \
-  ipset \
-  iproute2 \
-  dnsutils \
-  aggregate \
   jq \
   ca-certificates \
   sudo \
@@ -106,71 +101,17 @@ COPY --from=builder /root/go/bin/gt /usr/local/bin/gt
 # Create workspace, go, and claude config directories
 RUN mkdir -p /home/node/go /home/node/.claude && chown -R node:node /home/node/go /home/node/.claude
 
-# Configure sudo access for node user (passwordless for network sandbox script only)
-# Input validation is done in the script itself
-RUN echo "node ALL=(ALL) NOPASSWD: /usr/local/bin/network-sandbox.sh" > /etc/sudoers.d/node \
-  && chmod 0440 /etc/sudoers.d/node
-
-# Copy network isolation scripts
-COPY scripts/network-sandbox.sh /usr/local/bin/network-sandbox.sh
-RUN chmod +x /usr/local/bin/network-sandbox.sh
-
-# Copy git credential helper
+# Copy entrypoint and git credential helper
+COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY scripts/git-credential-github-token /usr/local/bin/git-credential-github-token
-RUN chmod +x /usr/local/bin/git-credential-github-token
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/git-credential-github-token
 
 WORKDIR /workspace
 
 # Expose gastown dashboard port
 EXPOSE 8080
 
-# Network isolation environment variables
-# SANDBOX_MODE: strict (whitelist only), permissive (block dangerous ports), disabled
-# ALLOWED_HOSTS: comma-separated list of allowed hosts/IPs (for strict mode)
-# ALLOW_DNS: true/false - allow DNS lookups
-# ALLOW_LOCALHOST: true/false - allow localhost traffic
-ENV SANDBOX_MODE=strict
-ENV ALLOWED_HOSTS="\
-github.com,\
-api.github.com,\
-raw.githubusercontent.com,\
-objects.githubusercontent.com,\
-codeload.github.com,\
-gitlab.com,\
-bitbucket.org,\
-registry.npmjs.org,\
-npmjs.com,\
-yarnpkg.com,\
-registry.yarnpkg.com,\
-crates.io,\
-static.crates.io,\
-index.crates.io,\
-pypi.org,\
-files.pythonhosted.org,\
-proxy.golang.org,\
-sum.golang.org,\
-storage.googleapis.com,\
-api.anthropic.com,\
-anthropic.com,\
-claude.ai,\
-api.claude.ai,\
-statsig.anthropic.com,\
-sentry.io,\
-o19835.ingest.sentry.io,\
-dl.google.com,\
-packages.microsoft.com,\
-deb.nodesource.com,\
-download.docker.com,\
-astral.sh,\
-sh.rustup.rs,\
-static.rust-lang.org\
-"
-ENV ALLOW_DNS=true
-ENV ALLOW_LOCALHOST=true
 ENV DASHBOARD_PORT=8080
-
-# Note: Container must be run with --cap-add=NET_ADMIN for iptables to work
-# Example: docker run --cap-add=NET_ADMIN -e SANDBOX_MODE=strict ...
 
 # Set shell to bash for better compatibility
 SHELL ["/bin/bash", "-c"]
@@ -178,7 +119,5 @@ SHELL ["/bin/bash", "-c"]
 # Run as node user
 USER node
 
-# Use network sandbox as entrypoint (runs with sudo for iptables access)
-ENTRYPOINT ["sudo", "/usr/local/bin/network-sandbox.sh"]
-
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["bash"]
