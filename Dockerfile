@@ -56,7 +56,8 @@ RUN npm install -g @anthropic-ai/claude-code
 RUN npm install -g @beads/bd
 
 # Install gastown (gt)
-RUN go install github.com/steveyegge/gastown/cmd/gt@v0.5.0
+ARG GASTOWN_VERSION=v0.5.0
+RUN go install github.com/steveyegge/gastown/cmd/gt@${GASTOWN_VERSION}
 
 # Create workspace, go, and claude config directories
 RUN mkdir -p /home/node/go /home/node/.claude && chown -R node:node /home/node/go /home/node/.claude
