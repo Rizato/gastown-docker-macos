@@ -3,6 +3,9 @@ CONTAINER_NAME := gastown-sandbox
 IMAGE_NAME := gastown-sandbox
 DASHBOARD_PORT := 3000
 
+# Volume directory to mount into /workspace (can be overridden via environment)
+VOLUME_DIR ?= $(PWD)/gt
+
 # Network isolation configuration (can be overridden from command line)
 # SANDBOX_MODE: strict (whitelist only), permissive (block dangerous ports), disabled
 SANDBOX_MODE ?= strict
@@ -30,7 +33,7 @@ start: build
 		docker run -d \
 			--name $(CONTAINER_NAME) \
 			--cap-add=NET_ADMIN \
-			-v "$(PWD):/workspace" \
+			-v "$(VOLUME_DIR):/workspace" \
 			-p $(DASHBOARD_PORT):$(DASHBOARD_PORT) \
 			-e ANTHROPIC_API_KEY \
 			-e SANDBOX_MODE=$(SANDBOX_MODE) \
