@@ -79,12 +79,12 @@ ENV UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python
 # Install Claude Code (native)
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
-# Install beads via npm
-RUN npm install -g @beads/bd
-
 # Install gastown (gt)
 ARG GASTOWN_VERSION=v0.5.0
 RUN go install github.com/steveyegge/gastown/cmd/gt@${GASTOWN_VERSION}
+
+# Install beads via npm
+RUN npm install -g @beads/bd
 
 # Create workspace, go, and claude config directories
 RUN mkdir -p /home/node/go /home/node/.claude && chown -R node:node /home/node/go /home/node/.claude
