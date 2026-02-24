@@ -130,4 +130,8 @@ RUN git config --global credential.helper /usr/local/bin/git-credential-github-t
 RUN git config --global user.name "${GIT_USERNAME}"
 RUN git config --global user.email "${GIT_EMAIL}"
 
+# Setup dolt config
+RUN dolt config --global --add user.name "${GIT_USERNAME}"
+RUN dolt config --global --add user.email "${GIT_EMAIL}"
+
 CMD ["bash"]
