@@ -41,6 +41,9 @@ RUN /usr/local/bin/uv python install
 # Install Claude Code (native installer)
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
+# Install Dolt
+RUN curl -L https://github.com/dolthub/dolt/releases/latest/download/install.sh | bash
+
 
 # =============================================================================
 # Stage 2: Runtime - Minimal image with only necessary tools
@@ -79,8 +82,11 @@ COPY --from=builder /usr/local/bin/uvx /usr/local/bin/uvx
 COPY --from=builder /root/.local/share/uv /usr/local/share/uv
 ENV UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python
 
+# Copy Dolt from builder
+COPY --from=builder /usr/local/bin/dolt /usr/local/bin/dolt
+
 # Install gastown (gt)
-ARG GASTOWN_VERSION=v0.5.0
+ARG GASTOWN_VERSION=v0.7.0
 RUN go install github.com/steveyegge/gastown/cmd/gt@${GASTOWN_VERSION}
 
 # Install beads via npm
